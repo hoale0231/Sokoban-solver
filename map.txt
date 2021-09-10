@@ -1,7 +1,14 @@
 #######
-#  p  #
-#  b  #
-#     #
+#b p  #
+# b    #
+#    g #
 #  g  #
 #     #
 #######
+
+walls = set()
+boxs = set()
+player
+goal = set()
+
+r d l u u 

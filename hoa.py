@@ -2,7 +2,6 @@ from queue import Queue
 from copy import deepcopy
 import time
 import os
-
 class Position:
     '''
     Coordinate object
@@ -96,39 +95,42 @@ class State:
     def isGoalState(self):
         return self.countBOG == self.countGoal
 
-def printSolution(initState: State, route):
-    state = initState
-    os.system('cls')
-    print(state)
+def printSolution(initState: State, route, duration):
+    input("Press Enter to continue...")
+    state = deepcopy(initState)
     for move in route:
         time.sleep(0.2)
-        os.system('cls')
         nextState = state.move(move)
         if nextState:
             state = nextState
+            os.system('cls')
             print(state)
+    print("Duration: " + str(duration))
 
 def BFS(initState: State):
+    start = time.time()
     state = deepcopy(initState)
     stateQueue = Queue()
     stateQueue.put(state)
     visited = set()
+    visited.add(state)
     while True:
+        if stateQueue.empty():
+            print("Can't found solution")
+            return None
         state = stateQueue.get()
         for direction in directions:
             nextState = state.move(direction)
-            if nextState:
+            if nextState and nextState not in visited:
                 if nextState.isGoalState():
+                    end = time.time()
+                    printSolution(initState, nextState.route, end - start)
                     return nextState
                 stateQueue.put(nextState)
-
-
+                visited.add(nextState)
 
 filename = 'map.txt'
 
 initState = State(filename)
 print(initState)
 goalState = BFS(initState)
-
-input("Press Enter to continue...")
-printSolution(initState, goalState.route)

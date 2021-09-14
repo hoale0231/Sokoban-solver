@@ -52,7 +52,7 @@ class State:
         return hash(str(self.map))
 
     def __eq__(self, o: object):
-        return self.map == o.map and self.player == o.player
+        return self.map == o.map
 
     def __repr__(self):
         return '\n'.join([''.join(row) for row in self.map])
@@ -79,8 +79,10 @@ class State:
             self.map[nextOfBox.x][nextOfBox.y] = BOX
         
         if self.map[box.x][box.y] == BOG:
-            self.map[box.x][box.y] == GOAL
+            self.map[box.x][box.y] = GOAL
             self.countBOG -= 1
+        else:
+            self.map[box.x][box.y] = FLOOR
 
     def move(self, direction: Position):
         if not self.isValidMove(direction): return None
@@ -122,6 +124,7 @@ def BFS(initState: State):
             print("Can't found solution")
             return None
         state = stateQueue.get()
+        visited.add(state)
         for direction in directions:
             nextState = state.move(direction)
             if nextState and nextState not in visited:
@@ -130,9 +133,8 @@ def BFS(initState: State):
                     printSolution(initState, nextState.route, end - start)
                     return nextState
                 stateQueue.put(nextState)
-                visited.add(nextState)
 
-filename = 'map.txt'
+filename = 'map2.txt'
 
 initState = State(filename)
 print(initState)

@@ -51,6 +51,9 @@ class State:
     def __hash__(self):
         return hash(str(self.map))
 
+    def __eq__(self, o: object):
+        return self.map == o.map and self.player == o.player
+
     def __repr__(self):
         return '\n'.join([''.join(row) for row in self.map])
 

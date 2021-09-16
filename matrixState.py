@@ -11,13 +11,10 @@ class Position:
         self.x = x
         self.y = y
 
-    def __eq__(self, other):
-        return self.x == other.x and self.y == other.y
-
     def __add__(self, other):
         return Position(self.x + other.x, self.y + other.y)
 
-# 4 possible moves = [DOWN, RIGHT, UP, LEFT]
+# 4 possible moves
 DOWN = Position(1,0)
 RIGHT = Position(0,1)
 UP = Position(-1,0)
@@ -57,9 +54,6 @@ class State:
     def __repr__(self):
         return '\n'.join([''.join(row) for row in self.map])
 
-    def getPosition(self):
-        return self.player.x, self.player.y
-
     def isValidMove(self, direction):
         next = self.player + direction
         frontNext = self.player + direction + direction
@@ -68,6 +62,13 @@ class State:
         if (self.map[next.x][next.y] in {BOX, BOG}) and (self.map[frontNext.x][frontNext.y] in {WALL, BOX, BOG}):
             return False
         return True
+
+    def validMoves(self):
+        validMoves = []
+        for direction in directions:
+            if self.isValidMove(direction):
+                validMoves.append(direction)
+        return validMoves
 
     def push(self, direction: Position):
         box = self.player + direction
@@ -85,7 +86,6 @@ class State:
             self.map[box.x][box.y] = FLOOR
 
     def move(self, direction: Position):
-        if not self.isValidMove(direction): return None
         nextState = deepcopy(self)
         nextState.route.append(direction)
         next = nextState.player + direction
@@ -125,16 +125,16 @@ def BFS(initState: State):
             return None
         state = stateQueue.get()
         visited.add(state)
-        for direction in directions:
-            nextState = state.move(direction)
-            if nextState and nextState not in visited:
+        for move in state.validMoves():
+            nextState = state.move(move)
+            if nextState not in visited:
                 if nextState.isGoalState():
                     end = time.time()
                     printSolution(initState, nextState.route, end - start)
                     return nextState
                 stateQueue.put(nextState)
 
-filename = 'map2.txt'
+filename = 'map1.txt'
 
 initState = State(filename)
 print(initState)

@@ -42,7 +42,7 @@ class SetState:
         self.goals = set()          # Set of goals
         self.boxes = set()          # Set of boxes
         self.player = Position(0,0) # Position of player
-        self.route = list()         # Use to save solution route
+        self.route = list()         # Solution route
         self.countBOG = 0           # Count number Box on Goal, use to check goal state
     
     # Input map from file
@@ -91,13 +91,13 @@ class SetState:
 
     # Check if the move is valid
     def isValidMove(self, direction: Position):
-        next = self.player + direction
+        nextPos = self.player + direction
         # Player can't move onto walls
-        if next in self.walls:
+        if nextPos in self.walls:
             return False
         # Player can't push the box if there is an obstacle behind
-        behindBox = next + direction
-        if next in self.boxes and (behindBox in self.boxes or behindBox in self.walls):
+        behindBox = nextPos + direction
+        if nextPos in self.boxes and (behindBox in self.boxes or behindBox in self.walls):
             return False
         # Player can move now!!
         return True
@@ -201,7 +201,7 @@ def printSolution(initState: MatrixState, route, duration):
 
   
 
-filename = 'map3.txt'
+filename = 'map2.txt'
 
 initState = MatrixState(filename)
 print(initState)

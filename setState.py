@@ -21,13 +21,10 @@ class Position:
     def __add__(self, other):
         return Position(self.x + other.x, self.y + other.y)
 
-# 4 possible moves
-DOWN = Position(1,0)
-RIGHT = Position(0,1)
-UP = Position(-1,0)
-LEFT = Position(0,-1)
-directions = [DOWN, RIGHT, UP, LEFT]
+# 4 possible moves = [DOWN, RIGHT, UP, LEFT]
+directions = [Position(1,0), Position(0,1), Position(-1,0), Position(0,-1)]
 
+# Convention symbol
 WALL = '#'
 BOX  = 'O'
 GOAL = 'X'
@@ -36,62 +33,19 @@ PLAYER = 'p'
 POG    = 'P' # PLAYER ON GOAL
 FLOOR  = ' '
 
-class State:
-    def __init__(self, filename):
-        f = open(filename)
-        self.map = f.read().split('\n')
-        self.countGoal = 0
-        self.countBOG  = 0
-        for iRow in range(len(self.map)):
-            self.map[iRow] = list(self.map[iRow])
-            self.countGoal += self.map[iRow].count(GOAL) + self.map[iRow].count(BOG) + self.map[iRow].count(POG)
-            if PLAYER in self.map[iRow]:
-                self.player = Position(iRow, self.map[iRow].index(PLAYER))
-            if POG in self.map[iRow]:
-                self.player = Position(iRow, self.map[iRow].index(POG))
-
-        self.route = []
-
-    def __repr__(self):
-        return '\n'.join([''.join(row) for row in self.map])
-
-    def push(self, direction: Position):
-        box = self.player + direction
-        nextOfBox = box + direction
-        if self.map[nextOfBox.x][nextOfBox.y] == GOAL:
-            self.map[nextOfBox.x][nextOfBox.y] = BOG
-            self.countBOG += 1
-        else:
-            self.map[nextOfBox.x][nextOfBox.y] = BOX
-        
-        if self.map[box.x][box.y] == BOG:
-            self.map[box.x][box.y] = GOAL
-            self.countBOG -= 1
-        else:
-            self.map[box.x][box.y] = FLOOR
-
-    def move(self, direction: Position):
-        nextState = deepcopy(self)
-        nextState.route.append(direction)
-        next = nextState.player + direction
-        if nextState.map[next.x][next.y] in {BOX, BOG}:
-            nextState.push(direction)
-
-        nextState.map[next.x][next.y] = POG if nextState.map[next.x][next.y] == GOAL else PLAYER
-        nextState.map[nextState.player.x][nextState.player.y] = GOAL if nextState.map[nextState.player.x][nextState.player.y] == POG else FLOOR
-        nextState.player += direction
-        return nextState
-
-
-class stateSet:
+class SetState:
+    '''
+    State are sets of positions of objects on the map
+    '''
     def __init__(self):
-        self.walls = set()
-        self.goals = set()
-        self.boxes = set()
-        self.player = Position(0,0)
-        self.route = list()
-        self.countBOG = 0
+        self.walls = set()          # Set of walls            
+        self.goals = set()          # Set of goals
+        self.boxes = set()          # Set of boxes
+        self.player = Position(0,0) # Position of player
+        self.route = list()         # Use to save solution route
+        self.countBOG = 0           # Count number Box on Goal, use to check goal state
     
+    # Input map from file
     def initMap(self, filename):
         map = open(filename).read().split('\n')
         for iRow in range(0, len(map)):
@@ -116,14 +70,17 @@ class stateSet:
                     self.goals.add(pos)
                     self.player = pos
 
+    # Make the state object hashable, i.e. addable to set()
     def __hash__(self):
         return hash((frozenset(self.boxes), self.player))
         
+    # Make the state object compare, it helps set() to work correctly
     def __eq__(self, o: object) -> bool:
-        return self.boxes.issubset(o.boxes) and self.player == o.player
+        return self.boxes == o.boxes and self.player == o.player
 
+    # Copy constructor, optimize deepcopy function since set of walls, goals are constant
     def copy(self):
-        other = stateSet()
+        other = SetState()
         other.boxes = deepcopy(self.boxes)
         other.player = deepcopy(self.player)
         other.route = deepcopy(self.route)
@@ -132,87 +89,133 @@ class stateSet:
         other.countBOG = self.countBOG
         return other
 
+    # Check if the move is valid
     def isValidMove(self, direction: Position):
         next = self.player + direction
+        # Player can't move onto walls
         if next in self.walls:
             return False
-        nextnext = next + direction
-        if next in self.boxes and (nextnext in self.boxes or nextnext in self.walls):
+        # Player can't push the box if there is an obstacle behind
+        behindBox = next + direction
+        if next in self.boxes and (behindBox in self.boxes or behindBox in self.walls):
             return False
+        # Player can move now!!
         return True
 
-    def validMoves(self):
-        validMoves = []
+    # Try move each direction in [DOWN, RIGHT, UP, LEFT], return valid next states
+    def getValidNextStates(self):
+        nextStates = []
         for direction in directions:
             if self.isValidMove(direction):
-                validMoves.append(direction)
-        return validMoves
-    
-    def push(self, direction: Position):
-        posBox = self.player + direction
-        posNextOfBox = posBox + direction
-        if posBox in self.goals:
-            self.countBOG -= 1
-        if posNextOfBox in self.goals:
-            self.countBOG += 1
-        self.boxes.remove(posBox)
-        self.boxes.add(posNextOfBox)
-        
+                nextState = self.copy()
+                nextState.move(direction)
+                nextStates.append(nextState)
+        return nextStates  
 
+    # Move to the next state
     def move(self, direction: Position):
-        nextState = self.copy()
-        nextState.route.append(direction)
-        if nextState.player + direction in nextState.boxes:
-            nextState.push(direction)
-        nextState.player += direction
-        return nextState
+        nextPos = self.player + direction
+        # Push box, if its in next position
+        if nextPos in self.boxes:
+            behindBox = nextPos + direction
+            # Push box
+            self.boxes.remove(nextPos)
+            self.boxes.add(behindBox)
+            # Update countPOG
+            if nextPos in self.goals:
+                self.countBOG -= 1
+            if behindBox in self.goals:
+                self.countBOG += 1
+        # Move player
+        self.player = nextPos
+        # Update route
+        self.route.append(direction)
 
     def isGoalState(self):
         return self.countBOG == len(self.goals)
 
-def printSolution(initState: State, route, duration):
+# Breadth first search 
+def BFS(initState: SetState): 
+    stateQueue = Queue()
+    visited = set()
+    stateQueue.put(initState)
+    visited.add(initState)
+    while not stateQueue.empty():
+        state: SetState = stateQueue.get() 
+        if state.isGoalState():
+            return state
+        for nextState in state.getValidNextStates():
+            if nextState not in visited:
+                stateQueue.put(nextState)
+                visited.add(nextState) 
+    return None
+
+class MatrixState:
+    '''
+    Use to print solution
+    '''
+    def __init__(self, filename):
+        f = open(filename)
+        self.map = f.read().split('\n')
+        for iRow in range(len(self.map)):
+            self.map[iRow] = list(self.map[iRow])
+            if PLAYER in self.map[iRow]:
+                self.player = Position(iRow, self.map[iRow].index(PLAYER))
+            if POG in self.map[iRow]:
+                self.player = Position(iRow, self.map[iRow].index(POG))
+
+    def __repr__(self):
+        return '\n'.join([''.join(row) for row in self.map])
+
+    def push(self, direction: Position):
+        box = self.player + direction
+        nextOfBox = box + direction
+        if self.map[nextOfBox.x][nextOfBox.y] == GOAL:
+            self.map[nextOfBox.x][nextOfBox.y] = BOG
+        else:
+            self.map[nextOfBox.x][nextOfBox.y] = BOX
+        
+        if self.map[box.x][box.y] == BOG:
+            self.map[box.x][box.y] = GOAL
+        else:
+            self.map[box.x][box.y] = FLOOR
+
+    def move(self, direction: Position):
+        next = self.player + direction
+        if self.map[next.x][next.y] in {BOX, BOG}:
+            self.push(direction)
+
+        self.map[next.x][next.y] = POG if self.map[next.x][next.y] == GOAL else PLAYER
+        self.map[self.player.x][self.player.y] = GOAL if self.map[self.player.x][self.player.y] == POG else FLOOR
+        self.player += direction
+
+def printSolution(initState: MatrixState, route, duration):
     input("Press Enter to continue...")
     state = deepcopy(initState)
     for move in route:
         time.sleep(0.2)
-        nextState = state.move(move)
-        if nextState:
-            state = nextState
-            os.system('cls')
-            print(state)
+        state.move(move)
+        os.system('cls')
+        print(state)
     print("Duration: " + str(duration))    
 
-def BFS(initState): 
-    state = deepcopy(initState)
-    stateQueue = Queue()
-    stateQueue.put(state)
-    visited = set()
-    visited.add(state)
-    while True:
-        if stateQueue.empty():
-            print("Can't found solution")
-            return None
-        state = stateQueue.get()
-        visited.add(state)
-        for move in state.validMoves():
-            nextState = state.move(move)
-            if nextState not in visited:
-                if nextState.isGoalState():
-                    return nextState
-                stateQueue.put(nextState)    
+  
 
-filename = 'map2.txt'
+filename = 'map3.txt'
 
-initState = State(filename)
+initState = MatrixState(filename)
 print(initState)
 
-initSetState = stateSet()
+initSetState = SetState()
 initSetState.initMap(filename)
 
 start = time.time()
 goalState = BFS(initSetState)
 end = time.time()
 
-print(len(goalState.route))
-printSolution(initState, goalState.route, end - start)
+if goalState:
+    print(len(goalState.route))
+    printSolution(initState, goalState.route, end - start)
+else:
+    print("Can't found solution")
 

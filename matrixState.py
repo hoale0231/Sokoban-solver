@@ -29,7 +29,7 @@ PLAYER = 'p'
 POG    = 'P' # PLAYER ON GOAL
 FLOOR  = ' '
 
-class State:
+class MatrixState:
     def __init__(self, filename):
         f = open(filename)
         self.map = f.read().split('\n')
@@ -100,19 +100,17 @@ class State:
     def isGoalState(self):
         return self.countBOG == self.countGoal
 
-def printSolution(initState: State, route, duration):
+def printSolution(initState: MatrixState, route, duration):
     input("Press Enter to continue...")
     state = deepcopy(initState)
     for move in route:
         time.sleep(0.2)
-        nextState = state.move(move)
-        if nextState:
-            state = nextState
-            os.system('cls')
-            print(state)
+        state = state.move(move)   
+        os.system('cls')
+        print(state)
     print("Duration: " + str(duration))
 
-def BFS(initState: State):
+def BFS(initState: MatrixState):
     start = time.time()
     state = deepcopy(initState)
     stateQueue = Queue()
@@ -134,8 +132,8 @@ def BFS(initState: State):
                     return nextState
                 stateQueue.put(nextState)
 
-filename = 'map1.txt'
+filename = 'map2.txt'
 
-initState = State(filename)
+initState = MatrixState(filename)
 print(initState)
 goalState = BFS(initState)

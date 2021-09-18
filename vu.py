@@ -1,6 +1,6 @@
 import numpy as np
-import queue
-from copy import deepcopy
+from queue import Queue
+import time
 
 WALL = '#',
 BOX  = 'O',
@@ -17,86 +17,95 @@ LEFT =  (0,-1)
 directions = [(-1,0), (1,0), (0,1), (0,-1)]
 
 
-
 def LoadMap(filename):
     with open(filename) as file:
         map = file.readlines()
         map = [line.rstrip() for line in map]
-    #map = [x.replace('\n','') for x in map]
     map = [','.join(map[i]) for i in range(len(map))]
     map = [x.split(',') for x in map]
     return np.array(map)
-
 MAP = LoadMap('map.txt')
-
 #get position
 def PosOfPlayer(state):
-    return tuple(np.argwhere(state == PLAYER)[0])
+    for x in np.argwhere((state == PLAYER)):
+        return tuple(x)
+
 def PosOfBoxes(state):
     temp = []
     for x in np.argwhere((state == BOX) | (state == BOG)):
         temp.append(tuple(x))
     return temp
+
 def PosOfGoals(state):
     temp = []
     for x in np.argwhere((state == GOAL) | (state == BOG)):
         temp.append(tuple(x))
     return temp
+
 def PosOfWalls(state):
     temp = []
     for x in np.argwhere(state == WALL):
         temp.append(tuple(x))
     return temp
 
-def isValidMove(pop, pow, pob, direction):
-    next = tuple(map(lambda i, j: i + j, pop, direction))
-    nextnext = tuple(map(lambda i, j: i + j, next, direction))
-    if next in pow:
+def isValidMove(pop, pob, pow, direc):
+    nextx, nexty = pop[0] + direc[0], pop[1] + direc[1]
+    nextnextx, nextnexty = nextx + direc[0], nexty + direc[1]
+    if (nextx, nexty) in pow:
         return False
-    elif (next in pob) and (nextnext in pow + pob):
+    elif ((nextx, nexty) in pob) and ((nextnextx, nextnexty) in pow + pob):
         return False
-    return next, nextnext
+    return (nextx, nexty)
 
-def update(pop, pow, pob, direction):
-    if (isValidMove(pop, pow, pob, direction) == False):
-        return False
-    nextpop, nextnextpop = isValidMove(pop, pow, pob, direction)
-    if nextpop in pob:
-        pob.remove(nextpop)
-        pob.append(nextnextpop)
-    pop = tuple(nextpop)
-    return pop, pob  
+def setMove(pop, pob, pow):
+    setM = []
+    for direc in directions:
+        if (isValidMove(pop, pob ,pow, direc) != False):
+            setM.append(direc)
+    return setM
+
+def update(pop, pob, direc):
+    x, y = pop
+    temp_pob = list(tuple(pob))
+    nextpop = (x+direc[0], y + direc[1])
+    if nextpop in temp_pob:
+        nextnextpop = (x+direc[0]*2, y+direc[1]*2)
+        temp_pob.remove(nextpop)
+        temp_pob.append(nextnextpop)
+    newpop = tuple(nextpop)
+    newpob = temp_pob
+    return newpop, newpob 
+
 def isGoalState(pob, pog):
-    return sorted(pog) == sorted(pob)
-
-def printSol(initial_state):
-
-    return
+    return sorted(pob) == sorted(pog)
 
 def BFS(pop, pob):
+    start = time.time()
     route = []
-    initial_state = (pop, pob)
-    state = deepcopy(initial_state)
-    stateQueue = queue.Queue()
-    stateQueue.put(state)
+    initial_state = (pop, pob, route)
+    stateQueue = Queue()
+    stateQueue.put(initial_state)
     visited = []
-    visited.append(state)
-    found = False
-    while not found:
+    visited.append(initial_state)
+    while True:
         if stateQueue.empty():
-            print("Not found!")
+            print("Can't found solution")
             return None
         state = stateQueue.get()
+        temp_route = list(tuple(state[2]))
         visited.append(state)
-        for direc in directions:
-            print(direc)
-            pop, pob = update(pop, pow, pob, direc)
-            if (pop, pob) not in visited:
-                if (isGoalState(pop, pob)):
-                    print("Found!")
-                    return route
-                stateQueue.put(pop, pob)
-
+        for direc in setMove(state[0], state[1], pow):
+            temp_route.append(direc)
+            temp_pop, temp_pob = update(state[0], state[1], direc)
+            nextState = (temp_pop, temp_pob, temp_route)
+            if nextState not in visited:
+                if isGoalState(nextState[1], pog):
+                    end = time.time()
+                    print("Runtime of BFS: ", end - start)
+                    return nextState[2]
+                stateQueue.put(nextState)
+            temp_route = list(tuple(state[2]))
+        
 if __name__ == '__main__':
     MAP = LoadMap('map.txt')
     #print(MAP)
@@ -104,16 +113,17 @@ if __name__ == '__main__':
     pob = PosOfBoxes(MAP)
     pog = PosOfGoals(MAP)
     pow = PosOfWalls(MAP)
-    #print("list of pos of player", pop)
-    #print("list of pos of boxes", pob)
-    #print("list of pos of goals", pog)
-    #print("list of pos of walls", pow)
 
-    #move = [DOWN, LEFT, DOWN, RIGHT]
-    #for m in move:
-    #    pop, pob = update(pop, pow, pob, m)
-    #print(isGoalState(pob, pog))
-
-    #print((isValidMove(pop, pow, pob, direction[1])))
-    #print((isValidMove(pop, pow, pob, direction[1])))
-    print(BFS(pop, pob))
+    result = (BFS(pop, pob))
+    str = ""
+    for sol in result:
+        if (sol == UP):
+            str += 'U'
+        if (sol == DOWN):
+            str += 'D'
+        if (sol == RIGHT):
+            str += 'R'
+        if (sol == LEFT):
+            str += 'L'
+        str += '|'
+    print("Solution: ",str)

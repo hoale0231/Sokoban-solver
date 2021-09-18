@@ -9,3 +9,9 @@ Assignment 1: Solve sokoban using search algorithm
 Sokoban game: https://ksokoban.online/
 
 More infomation: https://en.wikipedia.org/wiki/Sokoban
+
+## Run 
+
+```powershell
+python sokoban.py <filename>
+```

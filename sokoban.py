@@ -1,7 +1,9 @@
-from queue import Queue
+from queue import Queue, PriorityQueue
 from copy import deepcopy
-import time
-import os
+from numpy import sqrt
+from time import time, sleep
+from sys import argv
+from os import system
 
 class Position:
     '''
@@ -20,6 +22,12 @@ class Position:
 
     def __add__(self, other):
         return Position(self.x + other.x, self.y + other.y)
+
+def ManhattanDistance(P1: Position, P2: Position):
+    return abs(P1.x - P2.x) + abs(P1.y - P2.y)
+
+def PythagoreanDistance(P1: Position, P2: Position):
+    return sqrt((P1.x - P2.x)**2 + (P1.y - P2.y)**2) 
 
 # 4 possible moves = [DOWN, RIGHT, UP, LEFT]
 directions = [Position(1,0), Position(0,1), Position(-1,0), Position(0,-1)]
@@ -44,6 +52,7 @@ class SetState:
         self.player = Position(0,0) # Position of player
         self.route = list()         # Solution route
         self.countBOG = 0           # Count number Box on Goal, use to check goal state
+        self.heuristic = 0
     
     # Input map from file
     def initMap(self, filename):
@@ -69,14 +78,42 @@ class SetState:
                 elif char == POG:
                     self.goals.add(pos)
                     self.player = pos
+        self.heuristic = self.getHeuristic()
 
     # Make the state object hashable, i.e. addable to set()
     def __hash__(self):
         return hash((frozenset(self.boxes), self.player))
         
-    # Make the state object compare, it helps set() to work correctly
-    def __eq__(self, o: object) -> bool:
+    # Make the state object comparable, it helps set(), PriorityQueue() to work correctly
+    def __eq__(self, o):
         return self.boxes == o.boxes and self.player == o.player
+    def __gt__(self, o):
+        return len(self.route) + self.heuristic > len(o.route) + o.heuristic
+    def __lt__(self, o):
+        return len(self.route) + self.heuristic < len(o.route) + o.heuristic
+
+    ####################################################################################
+    ####################################################################################
+    ####################################################################################
+    '''
+    Define heuristic function here!!!
+    U can use ManhattanDistance(P1: Position, P2: Position) 
+           or PythagoreanDistance(P1: Position, P2: Position) to get distance of 2 object
+    '''
+    def greedyAssignment(self):
+        return 0
+
+    def closestAssignment(self):
+        return 0
+
+    def HungarianAssignment(self):
+        return 0
+
+    def getHeuristic(self):
+        return self.HungarianAssignment()
+    ####################################################################################
+    ####################################################################################
+    ####################################################################################
 
     # Copy constructor, optimize deepcopy function since set of walls, goals are constant
     def copy(self):
@@ -87,6 +124,7 @@ class SetState:
         other.walls = self.walls
         other.goals = self.goals
         other.countBOG = self.countBOG
+        other.heuristic = other.getHeuristic()
         return other
 
     # Check if the move is valid
@@ -150,9 +188,25 @@ def BFS(initState: SetState):
                 visited.add(nextState) 
     return None
 
+# A* Search
+def A_Star(initState: SetState):
+    stateQueue = PriorityQueue()    
+    visited = set()
+    stateQueue.put(initState)
+    visited.add(initState)
+    while not stateQueue.empty():
+        state: SetState = stateQueue.get() 
+        if state.isGoalState():
+            return state
+        for nextState in state.getValidNextStates():
+            if nextState not in visited:
+                stateQueue.put(nextState)
+                visited.add(nextState) 
+
 class MatrixState:
     '''
     Use to print solution
+    Don't care me!!
     '''
     def __init__(self, filename):
         f = open(filename)
@@ -189,33 +243,61 @@ class MatrixState:
         self.map[self.player.x][self.player.y] = GOAL if self.map[self.player.x][self.player.y] == POG else FLOOR
         self.player += direction
 
-def printSolution(initState: MatrixState, route, duration):
+def printSolution(initState: MatrixState, route):
     input("Press Enter to continue...")
     state = deepcopy(initState)
     for move in route:
-        time.sleep(0.2)
+        sleep(0.2)
         state.move(move)
-        os.system('cls')
+        system('cls')
         print(state)
-    print("Duration: " + str(duration))    
 
-  
 
-filename = 'map2.txt'
+if __name__ == '__main__':
+    # Input map
+    filename = 'map.txt' if len(argv) != 2 else argv[1]
 
-initState = MatrixState(filename)
-print(initState)
+    # Init state
+    matrixState = MatrixState(filename) # Use for print solution
+    print(matrixState)
+    initState = SetState()
+    initState.initMap(filename)
 
-initSetState = SetState()
-initSetState.initMap(filename)
+    # Blind search
+    start = time()
+    blind = BFS(initState)
+    end = time()
+    blindTime = end - start
 
-start = time.time()
-goalState = BFS(initSetState)
-end = time.time()
+    # Heuristic search
+    start = time()
+    heuristic = A_Star(initState)
+    end = time() 
+    heuristicTime = end - start
 
-if goalState:
-    print(len(goalState.route))
-    printSolution(initState, goalState.route, end - start)
-else:
-    print("Can't found solution")
+    # Print solution
+    print("Solution is ready!!")
+    while True:
+        print("Blind search")
+        print("Duration: ", blindTime)
+        print("Step: ", len(blind.route)) 
+        print("Heuristic search")
+        print("Duration: ", heuristicTime)
+        print("Step: ", len(heuristic.route))
 
+        try:
+            choice = int(input("Please choice (1. Blind search 2. Heuristic search 0. Exit): "))
+        except ValueError:
+            print("Please input 0 or 1 or 2!!!")
+            continue
+
+        if choice == 0:
+            break
+        if choice == 1:
+            printSolution(matrixState, blind.route)
+            continue
+        if choice == 2:
+            printSolution(matrixState, heuristic.route)
+            continue
+        
+        print("Please input 0 or 1 or 2!!!")

@@ -120,7 +120,7 @@ class MatrixState:
     def isGoalState(self):
         return self.countBOG == self.countGoal
 
-def printSolution(initState: MatrixState, route, duration):
+def printSolution(initState: MatrixState, route, t):
     input("Press Enter to continue...")
     state = deepcopy(initState)
     for move in route:
@@ -128,7 +128,9 @@ def printSolution(initState: MatrixState, route, duration):
         state.move(move)
         os.system('cls')
         print(state)
-    print("Duration: " + str(duration))   
+    print("Time: " + str(t))
+    print("Steps: " + str(len(route)))
+
 
 # Breadth first search 
 def BFS(initState: MatrixState): 
@@ -157,7 +159,6 @@ goalState = BFS(initState)
 end = time.time()
 
 if goalState:
-    print(len(goalState.route))
     printSolution(initState, goalState.route, end - start)
 else:
     print("Can't found solution")

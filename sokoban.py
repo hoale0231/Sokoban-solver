@@ -172,9 +172,13 @@ class SetState:
     def isGoalState(self):
         return self.countBOG == len(self.goals)
 
-# Breadth first search 
-def BFS(initState: SetState): 
-    stateQueue = Queue()
+'''
+Search algorithm
+BFS = Search(initState, Queue())
+A*  = Search(initState, PriorityQueue())
+'''
+def Search(initState: SetState, queue: Queue): 
+    stateQueue = queue
     visited = set()
     stateQueue.put(initState)
     visited.add(initState)
@@ -187,21 +191,6 @@ def BFS(initState: SetState):
                 stateQueue.put(nextState)
                 visited.add(nextState) 
     return None
-
-# A* Search
-def A_Star(initState: SetState):
-    stateQueue = PriorityQueue()    
-    visited = set()
-    stateQueue.put(initState)
-    visited.add(initState)
-    while not stateQueue.empty():
-        state: SetState = stateQueue.get() 
-        if state.isGoalState():
-            return state
-        for nextState in state.getValidNextStates():
-            if nextState not in visited:
-                stateQueue.put(nextState)
-                visited.add(nextState) 
 
 class MatrixState:
     '''
@@ -265,13 +254,13 @@ if __name__ == '__main__':
 
     # Blind search
     start = time()
-    blind = BFS(initState)
+    blind = Search(initState, Queue())
     end = time()
     blindTime = end - start
 
     # Heuristic search
     start = time()
-    heuristic = A_Star(initState)
+    heuristic = Search(initState, PriorityQueue())
     end = time() 
     heuristicTime = end - start
 

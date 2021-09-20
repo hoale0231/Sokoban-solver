@@ -1,9 +1,10 @@
 from queue import Queue, PriorityQueue
 from copy import deepcopy
-from numpy import sqrt
+import numpy as np
 from time import time, sleep
 from sys import argv
 from os import system
+from hu import hungarian_algorithm
 
 class Position:
     '''
@@ -27,7 +28,7 @@ def ManhattanDistance(P1: Position, P2: Position):
     return abs(P1.x - P2.x) + abs(P1.y - P2.y)
 
 def PythagoreanDistance(P1: Position, P2: Position):
-    return sqrt((P1.x - P2.x)**2 + (P1.y - P2.y)**2) 
+    return np.sqrt((P1.x - P2.x)**2 + (P1.y - P2.y)**2) 
 
 # 4 possible moves = [DOWN, RIGHT, UP, LEFT]
 directions = [Position(1,0), Position(0,1), Position(-1,0), Position(0,-1)]
@@ -53,12 +54,14 @@ class SetState:
         self.route = list()         # Solution route
         self.countBOG = 0           # Count number Box on Goal, use to check goal state
         self.heuristic = 0
+        self.deadPos = set()
     
     # Input map from file
-    def initMap(self, filename):
+    def initMap(self, filename, deadlock = True):
         map = open(filename).read().split('\n')
-        for iRow in range(0, len(map)):
-            for iCol in range(0, len(map[iRow])):
+        for iRow in range(len(map)):
+            map[iRow] = list(map[iRow])
+            for iCol in range(len(map[iRow])):
                 pos = Position(iRow, iCol)
                 char = map[iRow][iCol]
                 if char == FLOOR:
@@ -78,7 +81,35 @@ class SetState:
                 elif char == POG:
                     self.goals.add(pos)
                     self.player = pos
-        self.heuristic = self.getHeuristic()
+        if deadlock: self.foundDeadPos(map)
+
+    def foundDeadPos(self, map):
+        for iRow in range(len(map)):
+            for iCol in range(len(map[iRow])):
+                if map[iRow][iCol] in {FLOOR, BOX, PLAYER} and Position(iRow, iCol) not in self.deadPos:
+                    for ifront in range(len(directions)):
+                        pos = Position(iRow, iCol)
+                        front = directions[ifront]
+                        side = directions[ifront - 1]
+                        back = directions[ifront - 2]
+                        flag = pos + back in self.walls and pos + side in self.walls
+                        if flag: 
+                            self.deadPos.add(pos)
+                        while flag and pos not in self.walls:
+                            if pos in self.goals or pos + side not in self.walls:
+                                flag = False
+                            pos += front
+                        pos = Position(iRow, iCol)
+                        while flag and pos not in self.walls:
+                            self.deadPos.add(pos)
+                            pos += front
+        for iRow in range(0, len(map)):
+            for iCol in range(len(map[iRow])):
+                if Position(iRow, iCol) in self.deadPos:
+                    map[iRow][iCol] = '.'
+            map[iRow] = ''.join(map[iRow])
+        print("Map after detect deadlock")
+        print('\n'.join(map))
 
     # Make the state object hashable, i.e. addable to set()
     def __hash__(self):
@@ -88,9 +119,9 @@ class SetState:
     def __eq__(self, o):
         return self.boxes == o.boxes and self.player == o.player
     def __gt__(self, o):
-        return len(self.route) + self.heuristic > len(o.route) + o.heuristic
+        return self.getHeuristic() > o.getHeuristic()
     def __lt__(self, o):
-        return len(self.route) + self.heuristic < len(o.route) + o.heuristic
+        return self.getHeuristic() < o.getHeuristic()
 
     ####################################################################################
     ####################################################################################
@@ -100,6 +131,12 @@ class SetState:
     U can use ManhattanDistance(P1: Position, P2: Position) 
            or PythagoreanDistance(P1: Position, P2: Position) to get distance of 2 object
     '''
+    def getMinDistPlayerToBox(self):
+        m = 100000000
+        for box in self.boxes:
+            m = min(PythagoreanDistance(self.player, box), m)
+        return m - 1
+
     def greedyAssignment(self):
         return 0
 
@@ -107,10 +144,13 @@ class SetState:
         return 0
 
     def HungarianAssignment(self):
-        return 0
+        mat = np.array([[PythagoreanDistance(x, y) for x in self.boxes] for y in self.goals])
+        return hungarian_algorithm(mat)
 
     def getHeuristic(self):
-        return self.HungarianAssignment()
+        if self.heuristic == 0:
+            self.heuristic = len(self.route)  + self.HungarianAssignment()
+        return self.heuristic
     ####################################################################################
     ####################################################################################
     ####################################################################################
@@ -124,7 +164,8 @@ class SetState:
         other.walls = self.walls
         other.goals = self.goals
         other.countBOG = self.countBOG
-        other.heuristic = other.getHeuristic()
+        other.deadPos = self.deadPos
+        other.heuristic = 0
         return other
 
     # Check if the move is valid
@@ -135,7 +176,7 @@ class SetState:
             return False
         # Player can't push the box if there is an obstacle behind
         behindBox = nextPos + direction
-        if nextPos in self.boxes and (behindBox in self.boxes or behindBox in self.walls):
+        if nextPos in self.boxes and (behindBox in self.boxes or behindBox in self.walls or behindBox in self.deadPos):
             return False
         # Player can move now!!
         return True
@@ -182,11 +223,13 @@ def Search(initState: SetState, queue: Queue):
     visited = set()
     stateQueue.put(initState)
     visited.add(initState)
+    cnt = 0
     while not stateQueue.empty():
         state: SetState = stateQueue.get() 
         if state.isGoalState():
-            return state
+            return state, len(visited), cnt
         for nextState in state.getValidNextStates():
+            cnt += 1
             if nextState not in visited:
                 stateQueue.put(nextState)
                 visited.add(nextState) 
@@ -254,13 +297,13 @@ if __name__ == '__main__':
 
     # Blind search
     start = time()
-    blind = Search(initState, Queue())
+    blind, nblind, cntblind = Search(initState, Queue())
     end = time()
     blindTime = end - start
 
     # Heuristic search
     start = time()
-    heuristic = Search(initState, PriorityQueue())
+    heuristic, nheur, cntheu = Search(initState, PriorityQueue())
     end = time() 
     heuristicTime = end - start
 
@@ -268,11 +311,15 @@ if __name__ == '__main__':
     print("Solution is ready!!")
     while True:
         print("Blind search")
-        print("Duration: ", blindTime)
-        print("Step: ", len(blind.route)) 
-        print("Heuristic search")
-        print("Duration: ", heuristicTime)
-        print("Step: ", len(heuristic.route))
+        print("Duration:", blindTime)
+        print("Step:", len(blind.route)) 
+        print("Node visited:", nblind)
+        print("Nodes generated:", cntblind)
+        print("\nHeuristic search")
+        print("Duration:", heuristicTime)
+        print("Step:", len(heuristic.route))
+        print("Node visited:", nheur)
+        print("Nodes generated:", cntheu)
 
         try:
             choice = int(input("Please choice (1. Blind search 2. Heuristic search 0. Exit): "))

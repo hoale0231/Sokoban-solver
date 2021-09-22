@@ -46,7 +46,7 @@ class SetState:
     '''
     State are sets of positions of objects on the map
     '''
-    def __init__(self):
+    def __init__(self, alpha = 1, beta = 1):
         self.walls = set()          # Set of walls            
         self.goals = set()          # Set of goals
         self.boxes = set()          # Set of boxes
@@ -54,7 +54,7 @@ class SetState:
         self.route = list()         # Solution route
         self.countBOG = 0           # Count number Box on Goal, use to check goal state
         self.heuristic = 0
-        self.deadPos = set()
+        self.deadlock = set()
     
     # Input map from file
     def initMap(self, filename, deadlock = True):
@@ -84,30 +84,60 @@ class SetState:
         if deadlock: self.foundDeadPos(map)
 
     def foundDeadPos(self, map):
-        for iRow in range(len(map)):
-            for iCol in range(len(map[iRow])):
-                if map[iRow][iCol] in {FLOOR, BOX, PLAYER} and Position(iRow, iCol) not in self.deadPos:
-                    for ifront in range(len(directions)):
-                        pos = Position(iRow, iCol)
-                        front = directions[ifront]
-                        side = directions[ifront - 1]
-                        back = directions[ifront - 2]
-                        flag = pos + back in self.walls and pos + side in self.walls
-                        if flag: 
-                            self.deadPos.add(pos)
-                        while flag and pos not in self.walls:
-                            if pos in self.goals or pos + side not in self.walls:
-                                flag = False
-                            pos += front
-                        pos = Position(iRow, iCol)
-                        while flag and pos not in self.walls:
-                            self.deadPos.add(pos)
-                            pos += front
+        # Found all position of floor in map include: FLOOR, BOX, PLAYER.
+        while True:
+            numDeadlock = len(self.deadlock)
+            for iRow in range(len(map)):
+                for iCol in range(len(map[iRow])):
+                    if map[iRow][iCol] in {FLOOR, BOX, PLAYER}:
+                        # Check each direction in [DOWN, RIGHT, UP, LEFT]
+                        for direction in range(len(directions)):
+                            '''
+                            A position is deadlocked if it has both 2 adjacent sides are walls
+                            Choose one side is 'back' and the other is 'side' 
+                            Assign:
+                                front = directions[direction]
+                                side = directions[direction - 1]
+                                back = directions[direction - 2]
+                            Because Directions = [DOWN, RIGHT, UP, LEFT], so:
+                            ---------------------
+                            Front | Side  | Back
+                            ---------------------
+                            DOWN  | LEFT  | UP
+                            RIGHT | DOWN  | LEFT
+                            UP    | RIGHT | DOWN
+                            LEFT  | UP    | RIGHT
+                            ---------------------
+                            '''
+                            pos = Position(iRow, iCol)
+                            front = directions[direction]
+                            side = directions[direction - 1]
+                            back = directions[direction - 2]
+                            # A position is deadlock if it has 2 adjacent sides of walls
+                            isDeadlock = (pos + back in self.walls) and (pos + side in self.walls)
+                            if isDeadlock: 
+                                self.deadlock.add(pos)
+                            # An edge is deadlock if one side is full of walls, and it don't have goal
+                            while True: # Do ... While
+                                if (pos in self.goals) or (pos + side not in self.walls):
+                                    isDeadlock = False
+                                pos += front
+                                if not isDeadlock or (pos in self.walls) or (pos in self.deadlock):
+                                    break
+                            # If edge is deadlock, mark it
+                            pos = Position(iRow, iCol)
+                            while isDeadlock and (pos not in self.walls):
+                                self.deadlock.add(pos)
+                                pos += front
+            if numDeadlock == len(self.deadlock): break
+            else: numDeadlock = len(self.deadlock)
+
+        # Print map after detect deadlock
         for iRow in range(0, len(map)):
             for iCol in range(len(map[iRow])):
-                if Position(iRow, iCol) in self.deadPos:
-                    map[iRow][iCol] = '.'
-            map[iRow] = ''.join(map[iRow])
+                if Position(iRow, iCol) in self.deadlock:
+                    map[iRow][iCol] = '-'
+            map[iRow] = ' '.join(map[iRow])
         print("Map after detect deadlock")
         print('\n'.join(map))
 
@@ -131,25 +161,22 @@ class SetState:
     U can use ManhattanDistance(P1: Position, P2: Position) 
            or PythagoreanDistance(P1: Position, P2: Position) to get distance of 2 object
     '''
-    def getMinDistPlayerToBox(self):
-        m = 100000000
-        for box in self.boxes:
-            m = min(PythagoreanDistance(self.player, box), m)
-        return m - 1
+    def getMinDist(self, obj, sets):
+        return min([ManhattanDistance(obj, element) for element in sets])
+
+    def closestAssignment(self):
+        return sum([self.getMinDist(box, self.goals) for box in self.boxes])
 
     def greedyAssignment(self):
         return 0
 
-    def closestAssignment(self):
-        return 0
-
     def HungarianAssignment(self):
-        mat = np.array([[PythagoreanDistance(x, y) for x in self.boxes] for y in self.goals])
+        mat = np.array([[ManhattanDistance(x, y) for x in self.boxes] for y in self.goals])
         return hungarian_algorithm(mat)
 
     def getHeuristic(self):
         if self.heuristic == 0:
-            self.heuristic = len(self.route)  + self.HungarianAssignment()
+            self.heuristic = len(self.route) + self.getMinDist(self.player, self.boxes) * 2 + self.closestAssignment() * 30
         return self.heuristic
     ####################################################################################
     ####################################################################################
@@ -164,7 +191,7 @@ class SetState:
         other.walls = self.walls
         other.goals = self.goals
         other.countBOG = self.countBOG
-        other.deadPos = self.deadPos
+        other.deadlock = self.deadlock
         other.heuristic = 0
         return other
 
@@ -176,7 +203,7 @@ class SetState:
             return False
         # Player can't push the box if there is an obstacle behind
         behindBox = nextPos + direction
-        if nextPos in self.boxes and (behindBox in self.boxes or behindBox in self.walls or behindBox in self.deadPos):
+        if nextPos in self.boxes and (behindBox in self.boxes or behindBox in self.walls or behindBox in self.deadlock):
             return False
         # Player can move now!!
         return True
@@ -251,7 +278,7 @@ class MatrixState:
                 self.player = Position(iRow, self.map[iRow].index(POG))
 
     def __repr__(self):
-        return '\n'.join([''.join(row) for row in self.map])
+        return '\n'.join([' '.join(row) for row in self.map])
 
     def push(self, direction: Position):
         box = self.player + direction
@@ -284,7 +311,6 @@ def printSolution(initState: MatrixState, route):
         system('cls')
         print(state)
 
-
 if __name__ == '__main__':
     # Input map
     filename = 'map.txt' if len(argv) != 2 else argv[1]
@@ -292,14 +318,14 @@ if __name__ == '__main__':
     # Init state
     matrixState = MatrixState(filename) # Use for print solution
     print(matrixState)
-    initState = SetState()
+    initState = SetState(30, 2)
     initState.initMap(filename)
 
     # Blind search
-    start = time()
-    blind, nblind, cntblind = Search(initState, Queue())
-    end = time()
-    blindTime = end - start
+    # start = time()
+    # blind, nblind, cntblind = Search(initState, PriorityQueue())
+    # end = time()
+    # blindTime = end - start
 
     # Heuristic search
     start = time()
@@ -310,11 +336,11 @@ if __name__ == '__main__':
     # Print solution
     print("Solution is ready!!")
     while True:
-        print("Blind search")
-        print("Duration:", blindTime)
-        print("Step:", len(blind.route)) 
-        print("Node visited:", nblind)
-        print("Nodes generated:", cntblind)
+        # print("Blind search")
+        # print("Duration:", blindTime)
+        # print("Step:", len(blind.route)) 
+        # print("Node visited:", nblind)
+        # print("Nodes generated:", cntblind)
         print("\nHeuristic search")
         print("Duration:", heuristicTime)
         print("Step:", len(heuristic.route))
@@ -330,7 +356,7 @@ if __name__ == '__main__':
         if choice == 0:
             break
         if choice == 1:
-            printSolution(matrixState, blind.route)
+            # printSolution(matrixState, blind.route)
             continue
         if choice == 2:
             printSolution(matrixState, heuristic.route)

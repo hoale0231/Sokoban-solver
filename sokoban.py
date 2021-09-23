@@ -4,7 +4,7 @@ import numpy as np
 from time import time, sleep
 from sys import argv
 from os import system
-from hu import hungarian_algorithm
+import pygame
 
 class Position:
     '''
@@ -46,7 +46,7 @@ class SetState:
     '''
     State are sets of positions of objects on the map
     '''
-    def __init__(self, alpha = 1, beta = 1):
+    def __init__(self):
         self.walls = set()          # Set of walls            
         self.goals = set()          # Set of goals
         self.boxes = set()          # Set of boxes
@@ -129,10 +129,13 @@ class SetState:
                             while isDeadlock and (pos not in self.walls):
                                 self.deadlock.add(pos)
                                 pos += front
+            self.printmap(deepcopy(map))
             if numDeadlock == len(self.deadlock): break
             else: numDeadlock = len(self.deadlock)
 
         # Print map after detect deadlock
+        
+    def printmap(self, map):
         for iRow in range(0, len(map)):
             for iCol in range(len(map[iRow])):
                 if Position(iRow, iCol) in self.deadlock:
@@ -140,6 +143,7 @@ class SetState:
             map[iRow] = ' '.join(map[iRow])
         print("Map after detect deadlock")
         print('\n'.join(map))
+
 
     # Make the state object hashable, i.e. addable to set()
     def __hash__(self):
@@ -170,13 +174,9 @@ class SetState:
     def greedyAssignment(self):
         return 0
 
-    def HungarianAssignment(self):
-        mat = np.array([[ManhattanDistance(x, y) for x in self.boxes] for y in self.goals])
-        return hungarian_algorithm(mat)
-
     def getHeuristic(self):
         if self.heuristic == 0:
-            self.heuristic = len(self.route) + self.getMinDist(self.player, self.boxes) * 2 + self.closestAssignment() * 30
+            self.heuristic = len(self.route) + self.getMinDist(self.player, self.boxes)  + self.closestAssignment() * 30
         return self.heuristic
     ####################################################################################
     ####################################################################################
@@ -314,18 +314,18 @@ def printSolution(initState: MatrixState, route):
 if __name__ == '__main__':
     # Input map
     filename = 'map.txt' if len(argv) != 2 else argv[1]
-
+    filename = 'map/' + filename
     # Init state
     matrixState = MatrixState(filename) # Use for print solution
     print(matrixState)
-    initState = SetState(30, 2)
+    initState = SetState()
     initState.initMap(filename)
 
     # Blind search
-    # start = time()
-    # blind, nblind, cntblind = Search(initState, PriorityQueue())
-    # end = time()
-    # blindTime = end - start
+    start = time()
+    blind, nblind, cntblind = Search(initState, PriorityQueue())
+    end = time()
+    blindTime = end - start
 
     # Heuristic search
     start = time()
@@ -336,11 +336,11 @@ if __name__ == '__main__':
     # Print solution
     print("Solution is ready!!")
     while True:
-        # print("Blind search")
-        # print("Duration:", blindTime)
-        # print("Step:", len(blind.route)) 
-        # print("Node visited:", nblind)
-        # print("Nodes generated:", cntblind)
+        print("Blind search")
+        print("Duration:", blindTime)
+        print("Step:", len(blind.route)) 
+        print("Node visited:", nblind)
+        print("Nodes generated:", cntblind)
         print("\nHeuristic search")
         print("Duration:", heuristicTime)
         print("Step:", len(heuristic.route))

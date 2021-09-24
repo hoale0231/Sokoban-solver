@@ -4,7 +4,7 @@ import numpy as np
 from time import time, sleep
 from sys import argv
 from os import system
-from hug import hungarian_algorithm
+#from hug import hungarian_algorithm
 
 
 class Position:
@@ -152,26 +152,27 @@ class SetState:
     def goalPullMetric(self):
         # This function help find all the cost from all the boxes when move to all the goals
         for goal in self.goals:
-            result = set()
+            result = PriorityQueue()
             for box in self.boxes:
                 # check if goal and box is possible
                 direction = Position((box.x - goal.x), (box.y-goal.y))
-                if direction.x > 0 and (box.x+1) in self.wall:
+                if direction.x > 0 and (box.x+1) in self.walls:
                     continue
-                if direction.x < 0 and (box.x-1) in self.wall:
+                if direction.x < 0 and (box.x-1) in self.walls:
                     continue
-                if direction.y > 0 and (box.y+1) in self.wall:
+                if direction.y > 0 and (box.y+1) in self.walls:
                     continue
-                if direction.y < 0 and (box.y-1) in self.wall:
+                if direction.y < 0 and (box.y-1) in self.walls:
                     continue
                 elif direction.x == 0:
-                    result.add((abs(direction.y), goal, box))
+                    result.put((abs(direction.y), goal, box))
                 elif direction.y == 0:
-                    result.add((abs(direction.x), goal, box))
+                    result.put((abs(direction.x), goal, box))
                 else:
                     dis = abs(direction.x) + abs(direction.y)
-                    result.add(dis, goal, box)
-                # cach khac?
+                    result.put((dis, goal, box))
+            return result
+            # cach khac?
         # return priority-(u,v)
 
     def closestGoal(position: Position, boxSet):
@@ -187,14 +188,14 @@ class SetState:
 
     def greedyAssignment(self):
         # This function assign each box to each goal
-        goalboxqueue = PriorityQueue
-        goalboxqueue = goalPullMetric(self)
+        goalboxqueue = PriorityQueue()
+        goalboxqueue = self.goalPullMetric()
         matchedBoxes = set()
         matchedGoals = set()
         #match = set()
         totalPath = 0
-        while len(goalboxqueue) != 0:
-            (p, g, b) = goalboxqueue.pop()
+        while not goalboxqueue.empty():
+            (p, g, b) = goalboxqueue.get()
             if not matchedGoals.contains(goalboxqueue) and not matchBoxes.contains(b):
                 matchedGoals.add(g)
                 matchedBoxes.add(b)
@@ -367,7 +368,7 @@ def printSolution(initState: MatrixState, route):
 
 if __name__ == '__main__':
     # Input map
-    filename = 'map.txt' if len(argv) != 2 else argv[1]
+    filename = 'map2.txt' if len(argv) != 2 else argv[1]
 
     # Init state
     matrixState = MatrixState(filename)  # Use for print solution

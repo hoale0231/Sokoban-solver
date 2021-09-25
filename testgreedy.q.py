@@ -363,7 +363,7 @@ def printSolution(initState: MatrixState, route):
 
 if __name__ == '__main__':
     # Input map
-    filename = 'map2.txt' if len(argv) != 2 else argv[1]
+    filename = 'map/map2.txt' if len(argv) != 2 else argv[1]
 
     # Init state
     matrixState = MatrixState(filename)  # Use for print solution

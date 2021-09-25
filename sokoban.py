@@ -23,6 +23,9 @@ class Position:
     def __add__(self, other):
         return Position(self.x + other.x, self.y + other.y)
 
+    def __lt__(self, other):
+        return True
+
 def ManhattanDistance(P1: Position, P2: Position):
     return abs(P1.x - P2.x) + abs(P1.y - P2.y)
 
@@ -45,7 +48,7 @@ class SetState:
     '''
     State are sets of positions of objects on the map
     '''
-    def __init__(self, A_star = False):
+    def __init__(self, A_star = False, option = 0):
         self.walls = set()          # Set of walls            
         self.goals = set()          # Set of goals
         self.boxes = set()          # Set of boxes
@@ -55,6 +58,7 @@ class SetState:
         self.heuristic = 0
         self.deadlock = set()
         self.A_star = A_star
+        self.option = option
     
     # Input map from file
     def initMap(self, filename, deadlock = True):
@@ -190,12 +194,54 @@ class SetState:
     def closestAssignment(self):
         return sum([self.getMinDist(box, self.goals) for box in self.boxes])
 
+    def goalPullMetric(self):
+        # This function help find all the cost from all the boxes when move to all the goals
+        for goal in self.goals:
+            result = PriorityQueue()
+            for box in self.boxes:
+                result.put((ManhattanDistance(goal, box), goal, box))
+            return result
+
+    def closestGoal(self, position: Position, boxSet):
+        # find closest box for a goal base on pythagorean distance
+        distanceVal = set()
+        for box in boxSet:
+            minBox: Position(0, 0)
+            distance = ManhattanDistance(position, box)
+            distanceVal.add(distance)
+            if distance == min(distanceVal):
+                minBox = box
+        return (minBox, distance)
+
     def greedyAssignment(self):
-        return 0
+        # This function assign each box to each goal
+        goalboxqueue = self.goalPullMetric()
+        matchedBoxes = set()
+        matchedGoals = set()
+        #match = set()
+        totalPath = 0
+        while not goalboxqueue.empty():
+            (p, g, b) = goalboxqueue.get()
+            if g not in matchedGoals and b not in matchedBoxes:
+                matchedGoals.add(g)
+                matchedBoxes.add(b)
+                totalPath += p
+                
+        notAssignedBox = set()
+        for b in self.boxes:
+            if b not in matchedBoxes:
+                notAssignedBox.add(b)
+
+        for g in self.goals:
+            if g not in matchedGoals:
+                b = self.closestGoal(g, notAssignedBox)
+                notAssignedBox.remove(b[0])
+                totalPath += b[1]
+        return totalPath
 
     def getHeuristic(self):
         if self.heuristic == 0:
-            self.heuristic = len(self.route) * self.A_star+ self.getMinDist(self.player, self.boxes) + self.closestAssignment() 
+            self.heuristic = len(self.route) * self.A_star + self.getMinDist(self.player, self.boxes) + self.greedyAssignment()
         return self.heuristic
     ####################################################################################
     ####################################################################################
@@ -213,6 +259,7 @@ class SetState:
         other.deadlock = self.deadlock
         other.heuristic = 0
         other.A_star = self.A_star
+        other.option = self.option
         return other
 
     # Check if the move is valid
@@ -338,30 +385,31 @@ if __name__ == '__main__':
     # Init state
     matrixState = MatrixState(filename) # Use for print solution
     print(matrixState)
-    initState = SetState(A_star = False)
-    initState.initMap(filename)
-
+    closest = SetState(A_star =True, option=0)
+    closest.initMap(filename)
+    greedy = SetState(A_star=True, option=1)
+    greedy.initMap(filename)
     # Blind search
     start = time()
-    blind, nblind, cntblind = Search(initState, Queue())
+    blind, nblind, cntblind = Search(greedy, PriorityQueue())
     end = time()
     blindTime = end - start
 
     # Heuristic search
     start = time()
-    heuristic, nheur, cntheu = Search(initState, PriorityQueue())
+    heuristic, nheur, cntheu = Search(closest, PriorityQueue())
     end = time() 
     heuristicTime = end - start
 
     # Print solution
     print("Solution is ready!!")
     while True:
-        print("Blind search")
+        print("Greedy search")
         print("Duration:", blindTime)
         print("Step:", len(blind.route)) 
         print("Node visited:", nblind)
         print("Nodes generated:", cntblind)
-        print("\nHeuristic search")
+        print("\nClosest search")
         print("Duration:", heuristicTime)
         print("Step:", len(heuristic.route))
         print("Node visited:", nheur)

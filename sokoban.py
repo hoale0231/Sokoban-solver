@@ -168,6 +168,25 @@ class SetState:
     def getMinDist(self, obj, sets):
         return min([ManhattanDistance(obj, element) for element in sets])
 
+    def closestAssignment1(self):
+        temp_goals = [[goal] for goal in self.goals]
+        for i in range(len(temp_goals)):
+            temp_goals[i].append(False)
+        sum = 0
+        for box in self.boxes:
+            min = 100
+            index = 0
+            for i in range(len(self.boxes)):
+                if (temp_goals[i][1] == False):
+                    if (ManhattanDistance(box, temp_goals[i][0]) < min):
+                        min = ManhattanDistance(box, temp_goals[i][0])
+                        index = i
+                else:
+                    continue
+            sum += min
+            temp_goals[index][1] = True
+        return sum
+
     def closestAssignment(self):
         return sum([self.getMinDist(box, self.goals) for box in self.boxes])
 

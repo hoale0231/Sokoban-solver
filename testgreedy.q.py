@@ -194,7 +194,7 @@ class SetState:
         totalPath = 0
         while not goalboxqueue.empty():
             (p, g, b) = goalboxqueue.get()
-            if not matchedGoals.contains(goalboxqueue) and not matchBoxes.contains(b):
+            if not matchedGoals.contains(goalboxqueue) and not matchedBoxes.contains(b):
                 matchedGoals.add(g)
                 matchedBoxes.add(b)
                 #match.add((g, b))

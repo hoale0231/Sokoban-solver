@@ -4,7 +4,6 @@ import numpy as np
 from time import time, sleep
 from sys import argv
 from os import system
-import pygame
 
 class Position:
     '''
@@ -46,7 +45,7 @@ class SetState:
     '''
     State are sets of positions of objects on the map
     '''
-    def __init__(self):
+    def __init__(self, A_star = False):
         self.walls = set()          # Set of walls            
         self.goals = set()          # Set of goals
         self.boxes = set()          # Set of boxes
@@ -55,6 +54,7 @@ class SetState:
         self.countBOG = 0           # Count number Box on Goal, use to check goal state
         self.heuristic = 0
         self.deadlock = set()
+        self.A_star = A_star
     
     # Input map from file
     def initMap(self, filename, deadlock = True):
@@ -176,7 +176,7 @@ class SetState:
 
     def getHeuristic(self):
         if self.heuristic == 0:
-            self.heuristic = len(self.route) + self.getMinDist(self.player, self.boxes)  + self.closestAssignment() * 30
+            self.heuristic = len(self.route) * self.A_star+ self.getMinDist(self.player, self.boxes) + self.closestAssignment() 
         return self.heuristic
     ####################################################################################
     ####################################################################################
@@ -193,6 +193,7 @@ class SetState:
         other.countBOG = self.countBOG
         other.deadlock = self.deadlock
         other.heuristic = 0
+        other.A_star = self.A_star
         return other
 
     # Check if the move is valid
@@ -313,17 +314,17 @@ def printSolution(initState: MatrixState, route):
 
 if __name__ == '__main__':
     # Input map
-    filename = 'map.txt' if len(argv) != 2 else argv[1]
-    filename = 'map/' + filename
+    filename = 'map' if len(argv) != 2 else argv[1]
+    filename = 'map/' + filename + '.txt'
     # Init state
     matrixState = MatrixState(filename) # Use for print solution
     print(matrixState)
-    initState = SetState()
+    initState = SetState(A_star = False)
     initState.initMap(filename)
 
     # Blind search
     start = time()
-    blind, nblind, cntblind = Search(initState, PriorityQueue())
+    blind, nblind, cntblind = Search(initState, Queue())
     end = time()
     blindTime = end - start
 

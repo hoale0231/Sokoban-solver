@@ -4,8 +4,6 @@ import numpy as np
 from time import time, sleep
 from sys import argv
 from os import system
-from hug import hungarian_algorithm
-
 
 class Position:
     '''
@@ -216,11 +214,6 @@ class SetState:
     def closestAssignment(self):
         return 0
 
-    def HungarianAssignment(self):
-        mat = np.array([[PythagoreanDistance(x, y)
-                       for x in self.boxes] for y in self.goals])
-        return hungarian_algorithm(mat)
-
     def getHeuristic(self):
         if self.heuristic == 0:
             self.heuristic = len(self.route) + self.greedyAssignment()
@@ -367,7 +360,7 @@ def printSolution(initState: MatrixState, route):
 
 if __name__ == '__main__':
     # Input map
-    filename = 'map.txt' if len(argv) != 2 else argv[1]
+    filename = 'map/map.txt' if len(argv) != 2 else argv[1]
 
     # Init state
     matrixState = MatrixState(filename)  # Use for print solution

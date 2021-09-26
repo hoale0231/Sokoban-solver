@@ -15,3 +15,7 @@ More infomation: https://en.wikipedia.org/wiki/Sokoban
 ```powershell
 python sokoban.py <filename>
 ```
+Example:
+```powershell
+python sokoban.py map1
+```

@@ -1,5 +1,6 @@
 from queue import Queue, PriorityQueue
 from copy import deepcopy
+from typing import Set
 import numpy as np
 from time import time, sleep
 from sys import argv
@@ -14,17 +15,21 @@ class Position:
         self.x = x
         self.y = y
 
+    # Make the position object hashable, i.e. addable to set()
+    def __hash__(self):
+        return hash((self.x, self.y))
+    
+    # Make the state object comparable, it helps set() to work correctly
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
 
-    def __hash__(self):
-        return hash((self.x, self.y))
-
+    # Help player move
     def __add__(self, other):
         return Position(self.x + other.x, self.y + other.y)
 
+    # Greedy algorithm uses PriorityQueue <(Int, Position, Position)>, this function helps PriorityQueue skip comparing 2 object positions
     def __lt__(self, other):
-        return True
+        return False
 
 def ManhattanDistance(P1: Position, P2: Position):
     return abs(P1.x - P2.x) + abs(P1.y - P2.y)
@@ -48,20 +53,29 @@ class SetState:
     '''
     State are sets of positions of objects on the map
     '''
-    def __init__(self, A_star = False, option = 0):
-        self.walls = set()          # Set of walls            
-        self.goals = set()          # Set of goals
-        self.boxes = set()          # Set of boxes
-        self.player = Position(0,0) # Position of player
-        self.route = list()         # Solution route
-        self.countBOG = 0           # Count number Box on Goal, use to check goal state
-        self.heuristic = 0
-        self.deadlock = set()
-        self.A_star = A_star
-        self.option = option
+    def __init__(self):
+        self.walls = set()              # Set of walls            
+        self.goals = set()              # Set of goals
+        self.boxes = set()              # Set of boxes
+        self.player = Position(0,0)     # Position of player
+        self.countBOG = 0               # Count number Box on Goal, use to check goal state
+        self.deadlocks = set()          # Set of deadlocks position
+        self.route = list()             # Solution route
+        self.heuristic = 0              # Heuristic value    
     
+    # Static member, use to set mode heuristic, deadlock detection
+    greedy = True   # True: greedy assigment | False: Closest assignment 
+    optimal = True  # True: get optimal heuristic solution (i.e. A* Search) | False: Best-First Search
+    detectDeadlock = True # Detect deadlock?
+    
+    @staticmethod
+    def setMode(greedy, optimal, detectDeadlock):
+        SetState.greedy = greedy
+        SetState.optimal = optimal
+        SetState.detectDeadlock = detectDeadlock
+
     # Input map from file
-    def initMap(self, filename, deadlock = True):
+    def initMap(self, filename):
         map = open(filename).read().split('\n')
         for iRow in range(len(map)):
             map[iRow] = list(map[iRow])
@@ -85,12 +99,12 @@ class SetState:
                 elif char == POG:
                     self.goals.add(pos)
                     self.player = pos
-        if deadlock: self.foundDeadPos(map)
+        self.foundDeadPos(map)
 
     def foundDeadPos(self, map):
         # Found all position of floor in map include: FLOOR, BOX, PLAYER.
         while True:
-            numDeadlock = len(self.deadlock)
+            numDeadlock = len(self.deadlocks)
             for iRow in range(len(map)):
                 for iCol in range(len(map[iRow])):
                     if map[iRow][iCol] in {FLOOR, BOX, PLAYER}:
@@ -120,34 +134,34 @@ class SetState:
                             # A position is deadlock if it has 2 adjacent sides of walls
                             isDeadlock = (pos + back in self.walls) and (pos + side in self.walls)
                             if isDeadlock: 
-                                self.deadlock.add(pos)
+                                self.deadlocks.add(pos)
                             # An edge is deadlock if one side is full of walls, and it don't have goal
                             while True: # Do ... While
                                 if (pos in self.goals) or (pos + side not in self.walls):
                                     isDeadlock = False
                                 pos += front
-                                if not isDeadlock or (pos in self.walls) or (pos in self.deadlock):
+                                if not isDeadlock or (pos in self.walls) or (pos in self.deadlocks):
                                     break
                             # If edge is deadlock, mark it
                             pos = Position(iRow, iCol)
                             while isDeadlock and (pos not in self.walls):
-                                self.deadlock.add(pos)
+                                self.deadlocks.add(pos)
                                 pos += front
-            self.printmap(deepcopy(map))
-            if numDeadlock == len(self.deadlock): break
-            else: numDeadlock = len(self.deadlock)
+            # self.printmap(deepcopy(map))
+            if numDeadlock == len(self.deadlocks): break
+            else: numDeadlock = len(self.deadlocks)
 
-        # Print map after detect deadlock
-        
+    # Print map after detect deadlock  
     def printmap(self, map):
         for iRow in range(0, len(map)):
             for iCol in range(len(map[iRow])):
-                if Position(iRow, iCol) in self.deadlock:
+                if Position(iRow, iCol) in self.deadlocks:
                     map[iRow][iCol] = '-'
             map[iRow] = ' '.join(map[iRow])
         print("Map after detect deadlock")
         print('\n'.join(map))
 
+    
 
     # Make the state object hashable, i.e. addable to set()
     def __hash__(self):
@@ -161,14 +175,6 @@ class SetState:
     def __lt__(self, o):
         return self.getHeuristic() < o.getHeuristic()
 
-    ####################################################################################
-    ####################################################################################
-    ####################################################################################
-    '''
-    Define heuristic function here!!!
-    U can use ManhattanDistance(P1: Position, P2: Position) 
-           or PythagoreanDistance(P1: Position, P2: Position) to get distance of 2 object
-    '''
     def getMinDist(self, obj, sets):
         return min([ManhattanDistance(obj, element) for element in sets])
 
@@ -196,11 +202,11 @@ class SetState:
 
     def goalPullMetric(self):
         # This function help find all the cost from all the boxes when move to all the goals
+        result = PriorityQueue()
         for goal in self.goals:
-            result = PriorityQueue()
             for box in self.boxes:
                 result.put((ManhattanDistance(goal, box), goal, box))
-            return result
+        return result
 
     def closestGoal(self, position: Position, boxSet):
         # find closest box for a goal base on pythagorean distance
@@ -226,7 +232,7 @@ class SetState:
                 matchedGoals.add(g)
                 matchedBoxes.add(b)
                 totalPath += p
-                
+
         notAssignedBox = set()
         for b in self.boxes:
             if b not in matchedBoxes:
@@ -241,11 +247,8 @@ class SetState:
 
     def getHeuristic(self):
         if self.heuristic == 0:
-            self.heuristic = len(self.route) * self.A_star + self.getMinDist(self.player, self.boxes) + self.greedyAssignment()
+            self.heuristic = len(self.route) * SetState.optimal + self.getMinDist(self.player, self.boxes) + (self.greedyAssignment() if SetState.greedy else self.closestAssignment1())
         return self.heuristic
-    ####################################################################################
-    ####################################################################################
-    ####################################################################################
 
     # Copy constructor, optimize deepcopy function since set of walls, goals are constant
     def copy(self):
@@ -256,10 +259,8 @@ class SetState:
         other.walls = self.walls
         other.goals = self.goals
         other.countBOG = self.countBOG
-        other.deadlock = self.deadlock
+        other.deadlocks = self.deadlocks
         other.heuristic = 0
-        other.A_star = self.A_star
-        other.option = self.option
         return other
 
     # Check if the move is valid
@@ -268,10 +269,15 @@ class SetState:
         # Player can't move onto walls
         if nextPos in self.walls:
             return False
-        # Player can't push the box if there is an obstacle behind
+        # Check behind box
         behindBox = nextPos + direction
-        if nextPos in self.boxes and (behindBox in self.boxes or behindBox in self.walls or behindBox in self.deadlock):
-            return False
+        if nextPos in self.boxes:
+             # Player can't push the box if there is an obstacle behind
+            if behindBox in self.boxes or behindBox in self.walls:
+                return False
+             # Player shouldn't push the box if behind is the deadlock position
+            if SetState.detectDeadlock and behindBox in self.deadlocks:
+                return False
         # Player can move now!!
         return True
 
@@ -378,56 +384,46 @@ def printSolution(initState: MatrixState, route):
         system('cls')
         print(state)
 
+def helpRun(filename, detectDeadlock = True, heuristic = True, optimalHeuristic = True, greedy = True):
+    SetState.setMode(greedy=greedy, optimal=optimalHeuristic, detectDeadlock=detectDeadlock)
+    queue = PriorityQueue() if heuristic else Queue()
+    initState = SetState()
+    initState.initMap(filename)
+    start = time()
+    goalState, nodeVisited, nodeCreated = Search(initState, queue)
+    end = time()
+    runTime = end - start
+    
+    print("Duration:", runTime)
+    print("Step:", len(goalState.route)) 
+    print("Node visited:", nodeVisited)
+    print("Nodes generated:", nodeCreated)
+    
 if __name__ == '__main__':
     # Input map
     filename = 'map' if len(argv) != 2 else argv[1]
     filename = 'map/' + filename + '.txt'
     # Init state
     matrixState = MatrixState(filename) # Use for print solution
-    print(matrixState)
-    closest = SetState(A_star =True, option=0)
-    closest.initMap(filename)
-    greedy = SetState(A_star=True, option=1)
-    greedy.initMap(filename)
-    # Blind search
-    start = time()
-    blind, nblind, cntblind = Search(greedy, PriorityQueue())
-    end = time()
-    blindTime = end - start
+    print(matrixState) 
 
-    # Heuristic search
-    start = time()
-    heuristic, nheur, cntheu = Search(closest, PriorityQueue())
-    end = time() 
-    heuristicTime = end - start
-
-    # Print solution
-    print("Solution is ready!!")
-    while True:
-        print("Greedy search")
-        print("Duration:", blindTime)
-        print("Step:", len(blind.route)) 
-        print("Node visited:", nblind)
-        print("Nodes generated:", cntblind)
-        print("\nClosest search")
-        print("Duration:", heuristicTime)
-        print("Step:", len(heuristic.route))
-        print("Node visited:", nheur)
-        print("Nodes generated:", cntheu)
-
-        try:
-            choice = int(input("Please choice (1. Blind search 2. Heuristic search 0. Exit): "))
-        except ValueError:
-            print("Please input 0 or 1 or 2!!!")
-            continue
-
-        if choice == 0:
-            break
-        if choice == 1:
-            # printSolution(matrixState, blind.route)
-            continue
-        if choice == 2:
-            printSolution(matrixState, heuristic.route)
-            continue
-        
-        print("Please input 0 or 1 or 2!!!")
+    print("===============================================")
+    print("Breath-First Search")
+    helpRun(filename, detectDeadlock=True, heuristic=False)
+    print("===============================================")
+    print("A*")
+    print("-----------------------------------------------")
+    print("Greedy")
+    helpRun(filename, detectDeadlock=True, heuristic=True, optimalHeuristic=True, greedy=True)
+    print("-----------------------------------------------")
+    print("Closest")
+    helpRun(filename, detectDeadlock=True, heuristic=True, optimalHeuristic=True, greedy=False)
+    print("===============================================")
+    print("Best-First search")
+    print("-----------------------------------------------")
+    print("Greedy")
+    helpRun(filename, detectDeadlock=True, heuristic=True, optimalHeuristic=False, greedy=True)
+    print("-----------------------------------------------")
+    print("Closest")
+    helpRun(filename, detectDeadlock=True, heuristic=True, optimalHeuristic=False, greedy=False)
+    print("===============================================")

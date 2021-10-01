@@ -65,7 +65,7 @@ class MatrixState:
         return '\n'.join([''.join(row) for row in self.map])
 
     # Check if the move is valid
-    def isValidMove(self, direction):
+    def isLegalMove(self, direction):
         nextPos = self.player + direction
         # Player can't move onto walls
         if self.map[nextPos.x][nextPos.y] == WALL: 
@@ -81,7 +81,7 @@ class MatrixState:
     def getValidNextStates(self):
         nextStates = []
         for direction in directions:
-            if self.isValidMove(direction):
+            if self.isLegalMove(direction):
                 nextState = deepcopy(self)
                 nextState.move(direction)
                 nextStates.append(nextState)

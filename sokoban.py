@@ -35,9 +35,6 @@ class Position:
 def ManhattanDistance(P1: Position, P2: Position):
     return abs(P1.row - P2.row) + abs(P1.col - P2.col)
 
-def PythagoreanDistance(P1: Position, P2: Position):
-    return np.sqrt((P1.row - P2.row)**2 + (P1.col - P2.col)**2) 
-
 # 4 possible moves = [DOWN, RIGHT, UP, LEFT]
 DIRECTIONS = [Position(1,0), Position(0,1), Position(-1,0), Position(0,-1)]
 
@@ -178,26 +175,7 @@ class SetState:
         return self.getHeuristic() < o.getHeuristic()
 
     def getMinDist(self, obj, sets):
-        return min([ManhattanDistance(obj, element) for element in sets])
-
-    def closestAssignment1(self):
-        temp_goals = [[goal] for goal in self.goals]
-        for i in range(len(temp_goals)):
-            temp_goals[i].append(False)
-        sum = 0
-        for box in self.boxes:
-            min = 100
-            index = 0
-            for i in range(len(self.boxes)):
-                if (temp_goals[i][1] == False):
-                    if (ManhattanDistance(box, temp_goals[i][0]) < min):
-                        min = ManhattanDistance(box, temp_goals[i][0])
-                        index = i
-                else:
-                    continue
-            sum += min
-            temp_goals[index][1] = True
-        return sum
+        return min([ManhattanDistance(obj, element) for element in sets]) 
 
     def closestAssignment(self):
         return sum([self.getMinDist(box, self.goals) for box in self.boxes])
@@ -249,8 +227,9 @@ class SetState:
 
     def getHeuristic(self):
         if self.heuristic == 0:
-            self.heuristic = len(self.route) * SetState.optimal + self.getMinDist(self.player, self.boxes)\
-                             + (self.greedyAssignment() if SetState.greedy else self.closestAssignment1())
+            self.heuristic = len(self.route) * SetState.optimal \
+                            + (self.greedyAssignment() if SetState.greedy else self.closestAssignment()) \
+                            + self.getMinDist(self.player, self.boxes) * (1 - SetState.optimal) # Applies only to Best-First Search, because it's not an admissible heuristic
         return self.heuristic
 
     # Copy constructor, optimize deepcopy function since set of walls, goals are constant
@@ -318,8 +297,8 @@ class SetState:
 
 '''
 Search algorithm
-BFS = Search(initState, Queue())
-A*  = Search(initState, PriorityQueue())
+Blind       = Search(initState, Queue())
+Heuristic   = Search(initState, PriorityQueue())
 '''
 def Search(initState: SetState, queue: Queue): 
     stateQueue = queue
@@ -338,156 +317,11 @@ def Search(initState: SetState, queue: Queue):
                 visited.add(nextState) 
     return None
 
-class MatrixState:
-    '''
-    Use to print solution
-    Don't care me!!
-    '''
-    def __init__(self, filename):
-        setState = SetState()
-        self.map = setState.initMap(filename)
-        for iRow in range(len(self.map)):
-            self.map[iRow] = list(self.map[iRow])
-            if PLAYER in self.map[iRow]:
-                self.player = Position(iRow, self.map[iRow].index(PLAYER))
-            if POG in self.map[iRow]:
-                self.player = Position(iRow, self.map[iRow].index(POG))
-            if POD in self.map[iRow]:
-                self.player = Position(iRow, self.map[iRow].index(POD))
-         
-    def __repr__(self):
-        return '\n'.join([' '.join(row) for row in self.map])
-
-    def push(self, direction: Position):
-        box = self.player + direction
-        nextOfBox = box + direction
-        if self.map[nextOfBox.row][nextOfBox.col] == GOAL:
-            self.map[nextOfBox.row][nextOfBox.col] = BOG
-        else:
-            self.map[nextOfBox.row][nextOfBox.col] = BOX
-        
-        if self.map[box.row][box.col] == BOG:
-            self.map[box.row][box.col] = GOAL
-        else:
-            self.map[box.row][box.col] = FLOOR
-
-    def move(self, direction: Position):
-        next = self.player + direction
-        if self.map[next.row][next.col] in {BOX, BOG}:
-            self.push(direction)
-
-        self.map[next.row][next.col] = POG if self.map[next.row][next.col] == GOAL \
-                                        else (POD if self.map[next.row][next.col] == DEADLOCK else PLAYER)
-        self.map[self.player.row][self.player.col] = GOAL if self.map[self.player.row][self.player.col] == POG \
-                                        else (DEADLOCK if self.map[self.player.row][self.player.col] == POD else FLOOR)
-
-        self.player += direction
-
-def printSolution(initState: MatrixState, route):
-    input("Press Enter to continue...")
-    state = deepcopy(initState)
-    for move in route:
-        sleep(1)
-        state.move(move)
-        system('cls')
-        print(state)
-
-def helpRun(filename, detectDeadlock = True, heuristic = True, optimalHeuristic = True, greedy = True):
-    SetState.setMode(greedy=greedy, optimal=optimalHeuristic, detectDeadlock=detectDeadlock)
-    queue = PriorityQueue() if heuristic else Queue()
-    initState = SetState()
-    initState.initMap(filename)
-    start = time()
-    goalState, nodeVisited, nodeCreated = Search(initState, queue)
-    end = time()
-    runTime = round(end - start, 4)
-
-    print("Duration:", runTime)
-    print("Step:", len(goalState.route)) 
-    print("Node visited:", nodeVisited)
-    print("Nodes generated:", nodeCreated)
-    
-
-    m = MatrixState(filename)
-    printSolution(m, goalState.route)
-    # return runtime, len(goalState.route), nodeVisited, nodeCreated
-
-def helpRunLevel(filename, dataSet, detectDeadlock = True, heuristic = True, optimalHeuristic = True, greedy = True):
-    SetState.setMode(greedy=greedy, optimal=optimalHeuristic, detectDeadlock=detectDeadlock)
-    queue = PriorityQueue() if heuristic else Queue()
-    initState = SetState()
-    initState.initMap(filename)
-    
-    start = time()
-    goalState, nodeVisited, nodeCreated = Search(initState, queue)
-    end = time()
-    runTime = round(end - start, 4)
-    
-    dataSet['Run time'] = runTime
-    dataSet['Steps'] = len(goalState.route)
-    dataSet['Visited'] = nodeVisited
-    dataSet['Generated'] = nodeCreated
-    print("Duration:", runTime)
-    print("Step:", len(goalState.route)) 
-    print("Node visited:", nodeVisited)
-    print("Nodes generated:", nodeCreated)
-    # return runtime, len(goalState.route), nodeVisited, nodeCreated
-
-def runAllLevel(folderName):
-    files = listdir(folderName)
-    manager = Manager()
-    returnValue = manager.dict()
-    size = len(files)
-    dataSet = {
-        'Run time': [None]*size,
-        'Steps':  [None]*size,
-        'Visited':  [None]*size,
-        'Generated':  [None]*size
-    }
-    for i in range(size):
-        P = Process(target=helpRunLevel, args=[folderName+'/'+files[i], returnValue, True, True, True, False])
-        P.start()
-        P.join(timeout=100)
-        if P.is_alive():
-            dataSet['Run time'][i] = 'Time out'
-            P.terminate()
-        else:
-            dataSet['Run time'][i] = returnValue['Run time']
-            dataSet['Steps'][i] = returnValue['Steps']
-            dataSet['Visited'][i] = returnValue['Visited']
-            dataSet['Generated'][i] = returnValue['Generated']
-    
-    df = DataFrame(dataSet)
-    df.to_excel(folderName+'.xlsx', sheet_name='AGreedy', index=False)
 
 
-if __name__ == '__main__':
-    # # Input map
-    # filename = 'map' if len(argv) != 2 else argv[1]
-    # filename = 'map/' + filename + '.txt'
-    # # Init state
-    # matrixState = MatrixState(filename) # Use for print solution
-    # print(matrixState) 
+########################################################################################################
+########################################################################################################
+###################################### STOP HERE !!! ###################################################
+########################################################################################################
+########################################################################################################
 
-    # print("===============================================")
-    # print("Breath-First Search")
-    # helpRun(filename, detectDeadlock=True, heuristic=False)
-    # print("===============================================")
-    # print("A*")
-    # print("-----------------------------------------------")
-    # print("Greedy")
-    # helpRun(filename, detectDeadlock=True, heuristic=True, optimalHeuristic=True, greedy=True)
-    # print("-----------------------------------------------")
-    # print("Closest")
-    # helpRun(filename, detectDeadlock=True, heuristic=True, optimalHeuristic=True, greedy=False)
-    # print("===============================================")
-    # print("Best-First search")
-    # print("-----------------------------------------------")
-    # print("Greedy")
-    # helpRun(filename, detectDeadlock=True, heuristic=True, optimalHeuristic=False, greedy=True)
-    # print("-----------------------------------------------")
-    # print("Closest")
-    # helpRun(filename, detectDeadlock=True, heuristic=True, optimalHeuristic=False, greedy=False)
-    # print("===============================================")
-    # runAllLevel('map/micro')
-    helpRun('map/map.txt')

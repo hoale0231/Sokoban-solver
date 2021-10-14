@@ -640,9 +640,9 @@ class Display:
         pygame.draw.line(win, WHITE, (0,500), (WIDTH,500), 4)
         pygame.draw.line(win, WHITE, (650,0), (650,500), 4)
         buttons(40, 520, 80, 40, RED, "BLI", 20)        # BLIND BUTTON
-        buttons(40, 580, 80, 40, RED, "HEU", 20)        # HEURISTIC BUTTON
+        buttons(40, 580, 80, 40, RED, "HEU", 20)       # HEURISTIC BUTTON
         buttons(200, 520, 80, 40, RED, "BEST-FS", 20)   # BEST-FS BUTTON
-        buttons(200, 580, 80, 40, RED, "A*", 20)        # A* BUTTON
+        buttons(200, 580, 80, 40, RED, "A*", 20)    # A* BUTTON
         buttons(360, 520, 80, 40, RED, "DeadLock", 20)  # DEADLOCK BUTTON
         buttons(360, 580, 80, 40, RED, "No", 20)        # NODEADLOCK BUTTON
         buttons(520, 520, 80, 40, RED, "Closest", 20)   # CLOSEST BUTTON
@@ -656,7 +656,6 @@ class Display:
         heuristic = True
         optimalHeuristic = False
         greedy = True
-
         matrixState = MatrixState(newfilename)
         DrawState(deepcopy(matrixState), False)
         ##################

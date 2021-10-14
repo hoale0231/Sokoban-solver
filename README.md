@@ -13,9 +13,5 @@ More infomation: https://en.wikipedia.org/wiki/Sokoban
 ## Run 
 
 ```powershell
-python sokoban.py <filename>
-```
-Example:
-```powershell
-python sokoban.py map1
+python sokoban.py
 ```

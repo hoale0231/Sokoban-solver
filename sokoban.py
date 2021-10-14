@@ -1,8 +1,8 @@
 from queue import Queue, PriorityQueue
 from copy import deepcopy
 from time import time, sleep
-from sys import argv
 import pygame
+import psutil
 
 class Position:
     def __init__(self, row, col):
@@ -331,11 +331,14 @@ def helpRun(filename, detectDeadlock = True, heuristic = True, optimalHeuristic 
     initState.initMap(filename)
     # Run algorithm
     start = time()
+    mems = psutil.Process().memory_info().rss / (1024 * 1024)
     goalState, nodeVisited, nodeCreated = Search(initState, queue)
+    meme = psutil.Process().memory_info().rss / (1024 * 1024)
     end = time()
+    memory = round(meme - mems, 4)
     runTime = round(end - start, 4)
     # Return result
-    return goalState.route, runTime, nodeVisited, nodeCreated
+    return goalState.route, runTime, nodeVisited, nodeCreated, memory
 
     
 ########################################################################################################
@@ -536,7 +539,7 @@ class Display:
             elif 80 < mouse[0] < 80+200 and 100 < mouse[1] < 100+200:
                 if click != None and click[0] == 1:
                     pygame.time.wait(100)
-                    newfilename = 'map/mini/mini01.txt'
+                    newfilename = 'map/mini/mini02.txt'
                     self.Display3()
             elif 320 < mouse[0] < 320+200 and 100 < mouse[1] < 100+200:
                 if click != None and click[0] == 1:

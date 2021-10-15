@@ -1,10 +1,9 @@
-from os import system, listdir
+from os import listdir
 from multiprocessing import Process, Manager
 from pandas import DataFrame
-import psutil
 from queue import Queue, PriorityQueue
 from copy import deepcopy
-from time import time, sleep
+from time import time
 from sys import argv
 
 class Position:
@@ -334,11 +333,8 @@ def helpRun(filename, detectDeadlock = True, heuristic = True, optimalHeuristic 
     initState.initMap(filename)
     # Run algorithm
     start = time()
-    mems = psutil.Process().memory_info().rss / (1024 * 1024)
     goalState, nodeVisited, nodeCreated = Search(initState, queue)
-    meme = psutil.Process().memory_info().rss / (1024 * 1024)
     end = time()
-    memory = round(meme - mems, 4)
     runTime = round(end - start, 4)
     # Return result
     return goalState.route, runTime, nodeVisited, nodeCreated, memory
@@ -361,17 +357,13 @@ def helpRunLevel(filename, dataSet, detectDeadlock = True, heuristic = True, opt
     initState.initMap(filename)
     
     start = time()
-    mems = psutil.Process().memory_info().rss / (1024 * 1024)
     goalState, nodeVisited, nodeCreated = Search(initState, queue)
-    meme = psutil.Process().memory_info().rss / (1024 * 1024)
     end = time()
     runTime = round(end - start, 4)
-    memory = round(meme - mems, 4)
     dataSet['Run time'] = runTime
     dataSet['Steps'] = len(goalState.route)
     dataSet['Visited'] = nodeVisited
     dataSet['Generated'] = nodeCreated
-    dataSet['Memory'] = memory
     print(filename + " done.")
 
 def runAllLevel(folderName, detectDeadlock = True, heuristic = True, optimalHeuristic = True, greedy = True):
@@ -384,7 +376,6 @@ def runAllLevel(folderName, detectDeadlock = True, heuristic = True, optimalHeur
         'Steps':  [None]*size,
         'Visited':  [None]*size,
         'Generated':  [None]*size,
-        'Memory': [None]*size
     }
 
     for i in range(size):
@@ -399,7 +390,6 @@ def runAllLevel(folderName, detectDeadlock = True, heuristic = True, optimalHeur
             dataSet['Steps'][i] = returnValue['Steps']
             dataSet['Visited'][i] = returnValue['Visited']
             dataSet['Generated'][i] = returnValue['Generated']
-            dataSet['Memory'][i] = returnValue['Memory']
     
     df = DataFrame(dataSet)
     df.to_excel(folderName+'Bgreedy'+'.xlsx', sheet_name='sheet1', index=False)

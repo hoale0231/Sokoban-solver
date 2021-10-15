@@ -2,7 +2,6 @@ from queue import Queue, PriorityQueue
 from copy import deepcopy
 from time import time, sleep
 import pygame
-import psutil
 
 class Position:
     def __init__(self, row, col):
@@ -331,11 +330,8 @@ def helpRun(filename, detectDeadlock = True, heuristic = True, optimalHeuristic 
     initState.initMap(filename)
     # Run algorithm
     start = time()
-    mems = psutil.Process().memory_info().rss / (1024 * 1024)
     goalState, nodeVisited, nodeCreated = Search(initState, queue)
-    meme = psutil.Process().memory_info().rss / (1024 * 1024)
     end = time()
-    memory = round(meme - mems, 4)
     runTime = round(end - start, 4)
     # Return result
     return goalState.route, runTime, nodeVisited, nodeCreated, memory

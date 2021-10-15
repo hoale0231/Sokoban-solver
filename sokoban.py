@@ -334,7 +334,7 @@ def helpRun(filename, detectDeadlock = True, heuristic = True, optimalHeuristic 
     end = time()
     runTime = round(end - start, 4)
     # Return result
-    return goalState.route, runTime, nodeVisited, nodeCreated, memory
+    return goalState.route, runTime, nodeVisited, nodeCreated
 
     
 ########################################################################################################
